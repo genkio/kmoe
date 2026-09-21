@@ -14,9 +14,9 @@ def comic_detail_html() -> str:
 
 
 @pytest.fixture
-def book_data_html() -> str:
-    """Read and return book_data_18488.html fixture."""
-    return (FIXTURES_DIR / "book_data_18488.html").read_text(encoding="utf-8")
+def book_data_json() -> str:
+    """Read and return book_data_18488.json fixture (data_book.php response)."""
+    return (FIXTURES_DIR / "book_data_18488.json").read_text(encoding="utf-8")
 
 
 @pytest.fixture

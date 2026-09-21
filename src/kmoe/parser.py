@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import re
 from typing import Any
 
@@ -64,59 +65,56 @@ def extract_js_variables(html: str) -> dict[str, str]:
 
 
 def extract_book_data_url(html: str) -> str | None:
-    """Extract the book_data.php URL from the detail page.
+    """Extract the data_book.php URL from the detail page.
 
-    The URL is in the load_bookdata() function.
+    The load_bookdata() function calls data_book("<hash>"); the hash is
+    session-specific (it encodes the logged-in uin).
     """
-    # Matches iframe_action2.location.href assignment to book_data.php URL
-    pattern = r'window\.iframe_action2\.location\.href\s*=\s*"(/book_data\.php\?h=[^"]+)"'
-    match = re.search(pattern, html)
-    return match.group(1) if match else None
+    match = re.search(r'data_book\(\s*"([^"]+)"', html)
+    return f"/data_book.php?h={match.group(1)}" if match else None
 
 
-def parse_volume_data(html: str) -> list[Volume]:
-    """Parse volume data from book_data.php response.
+def parse_volume_data(response_text: str) -> list[Volume]:
+    """Parse volume data from the data_book.php JSON response.
 
-    The response contains postMessage calls like:
-    parent.postMessage("volinfo=1001,0,0,單行本,1,卷 01,190,190,0.0,88.2,36.9,85.4,,2023-03-20,...", "*");
-
-    Fields: vol_id, ?, ?, type, order, title, pages, ?, ?, size_mobi_mb, ?, size_epub_mb, ...
+    voldata is a list of rows; fields by index:
+    [0]=vol_id, [5]=title, [6]=file_count, [9]=size_mobi_mb, [11]=size_epub_mb
     """
     volumes: list[Volume] = []
 
-    # Pattern for volinfo data
-    pattern = r'parent\.postMessage\s*\(\s*"volinfo=([^"]+)"'
+    try:
+        data = json.loads(response_text)
+    except json.JSONDecodeError:
+        return volumes
 
-    for match in re.finditer(pattern, html):
-        data = match.group(1)
-        parts = data.split(",")
+    for row in data.get("voldata", []):
+        if len(row) < 7:
+            continue
 
-        if len(parts) >= 7:
-            vol_id = parts[0]
-            title = parts[5]
-            try:
-                pages = int(parts[6])
-            except (ValueError, IndexError):
-                pages = 1
+        vol_id = row[0]
+        title = row[5]
+        try:
+            file_count = int(row[6])
+        except (ValueError, TypeError):
+            file_count = 1
 
-            # Fields: [9]=size_mobi_mb, [10]=unknown, [11]=size_epub_mb
-            size_mobi_mb = 0.0
-            size_epub_mb = 0.0
-            if len(parts) >= 12:
-                with contextlib.suppress(ValueError):
-                    size_mobi_mb = float(parts[9])
-                with contextlib.suppress(ValueError):
-                    size_epub_mb = float(parts[11])
+        size_mobi_mb = 0.0
+        size_epub_mb = 0.0
+        if len(row) >= 12:
+            with contextlib.suppress(ValueError, TypeError):
+                size_mobi_mb = float(row[9])
+            with contextlib.suppress(ValueError, TypeError):
+                size_epub_mb = float(row[11])
 
-            volumes.append(
-                Volume(
-                    vol_id=vol_id,
-                    title=title,
-                    file_count=pages,
-                    size_mobi_mb=size_mobi_mb,
-                    size_epub_mb=size_epub_mb,
-                )
+        volumes.append(
+            Volume(
+                vol_id=vol_id,
+                title=title,
+                file_count=file_count,
+                size_mobi_mb=size_mobi_mb,
+                size_epub_mb=size_epub_mb,
             )
+        )
 
     return volumes
 

@@ -104,46 +104,46 @@ class TestParseSearchResults:
 
 
 class TestParseVolumeData:
-    """Given book_data.php HTML response with volinfo postMessage calls."""
+    """Given a data_book.php JSON response with a voldata array."""
 
-    def test_extracts_all_volumes(self, book_data_html: str) -> None:
+    def test_extracts_all_volumes(self, book_data_json: str) -> None:
         """When parsing volume data,
-        then all 37 volumes are extracted."""
-        volumes = parse_volume_data(book_data_html)
-        assert len(volumes) == 37
+        then all 42 volumes are extracted."""
+        volumes = parse_volume_data(book_data_json)
+        assert len(volumes) == 42
 
-    def test_first_volume_fields(self, book_data_html: str) -> None:
+    def test_first_volume_fields(self, book_data_json: str) -> None:
         """When parsing the first volume,
         then vol_id, title, and file_count are correct."""
-        vol = parse_volume_data(book_data_html)[0]
+        vol = parse_volume_data(book_data_json)[0]
         assert vol.vol_id == "1001"
         assert vol.title == "卷 01"
         assert vol.file_count == 190
 
-    def test_volume_sizes_extracted(self, book_data_html: str) -> None:
+    def test_volume_sizes_extracted(self, book_data_json: str) -> None:
         """When parsing volume data,
         then MOBI and EPUB sizes in MB are extracted."""
-        vol = parse_volume_data(book_data_html)[0]
+        vol = parse_volume_data(book_data_json)[0]
         assert vol.size_mobi_mb == pytest.approx(88.2)
-        assert vol.size_epub_mb == pytest.approx(85.4)
+        assert vol.size_epub_mb == pytest.approx(48.5)
 
-    def test_special_volume_type(self, book_data_html: str) -> None:
+    def test_special_volume_type(self, book_data_json: str) -> None:
         """When parsing a non-standard volume (e.g. 番外篇),
         then it is correctly extracted with its own vol_id."""
-        volumes = parse_volume_data(book_data_html)
+        volumes = parse_volume_data(book_data_json)
         special = next(v for v in volumes if v.vol_id == "2001")
         assert special.title == "短篇"
         assert special.file_count == 48
 
-    def test_chapter_group_volume(self, book_data_html: str) -> None:
+    def test_chapter_group_volume(self, book_data_json: str) -> None:
         """When parsing a chapter-group volume (話),
         then its title contains the chapter range."""
-        volumes = parse_volume_data(book_data_html)
+        volumes = parse_volume_data(book_data_json)
         chapter = next(v for v in volumes if v.vol_id == "3151")
         assert chapter.title == "話 151-155"
 
-    def test_empty_html_returns_empty_list(self) -> None:
-        """Given HTML with no volinfo messages,
+    def test_empty_response_returns_empty_list(self) -> None:
+        """Given a non-JSON body,
         when parsed,
         then an empty list is returned."""
         assert parse_volume_data("<html></html>") == []
@@ -183,17 +183,17 @@ class TestParseComicDetail:
 
 
 class TestExtractBookDataUrl:
-    """Given comic detail HTML containing the book_data.php URL."""
+    """Given comic detail HTML containing the data_book() hash."""
 
     def test_extracts_url_path(self, comic_detail_html: str) -> None:
-        """When the HTML contains an iframe_action2 href assignment,
-        then the /book_data.php path is extracted."""
+        """When the HTML contains a data_book("<hash>") call,
+        then the /data_book.php path is extracted."""
         url = extract_book_data_url(comic_detail_html)
         assert url is not None
-        assert url.startswith("/book_data.php?h=")
+        assert url.startswith("/data_book.php?h=")
 
     def test_returns_none_for_missing(self) -> None:
-        """Given HTML without book_data reference,
+        """Given HTML without a data_book reference,
         when extracted,
         then None is returned."""
         assert extract_book_data_url("<html></html>") is None
