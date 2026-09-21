@@ -37,7 +37,7 @@ class URLTemplate:
     BATCH_DOWNLOAD = (
         "https://{domain}/getdownurl.php?b={book_id}&v=1&vip=9&mobi={format_code}&batch={vol_list}"
     )
-    LOGIN = "https://{domain}/login_do.php"
+    LOGIN = "https://{domain}/login_act.php"
     HOME = "https://{domain}/"
     MY = "https://{domain}/my.php"
 

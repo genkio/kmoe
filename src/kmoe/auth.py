@@ -98,23 +98,21 @@ async def login(client: KmoeClient, username: str, password: str) -> UserStatus:
     Raises:
         AuthError: If authentication fails.
     """
-    form_data = {
-        "email": username,
-        "passwd": password,
-        "keepalive": "on",
-    }
+    response = await client.post(URLTemplate.LOGIN, data={"email": username, "passwd": password})
 
-    await client.post(URLTemplate.LOGIN, data=form_data)
+    try:
+        result = json.loads(response.text)
+    except json.JSONDecodeError as exc:
+        raise AuthError("Login failed: unexpected server response") from exc
+
+    # login_act.php returns msgid "m100" on success; anything else carries msg
+    if result.get("msgid") != "m100":
+        raise AuthError(result.get("msg") or "Login failed")
+
     cookies = client.get_cookies()
-
     home_response = await client.get(URLTemplate.HOME)
-    home_html = home_response.text
-
-    if "login.php" in home_html and "my.php" not in home_html:
-        raise AuthError("Login failed: invalid credentials or server error")
-
     save_session(cookies)
-    return await _build_user_status(client, home_html)
+    return await _build_user_status(client, home_response.text)
 
 
 async def check_session(client: KmoeClient) -> UserStatus | None:
