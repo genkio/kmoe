@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Optional
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from rich.progress import TaskID
 
@@ -24,6 +24,7 @@ from kmoe.constants import DownloadFormat
 from kmoe.download import DownloadResult, download_volume, resolve_format
 from kmoe.exceptions import KmoeError, QuotaExhaustedError
 from kmoe.library import (
+    LANGUAGE_SUBDIR_CODES,
     detect_title_from_directory,
     find_missing_vol_ids,
     is_scan_only_entry,
@@ -132,7 +133,7 @@ def _configure_interactively(config: AppConfig) -> None:
     # download_dir - 使用纯 ASCII 默认值避免 typer 中文字符问题
     download_dir_str = typer.prompt(
         "Download directory",
-        default="~/kmoe-library",
+        default="~/box/manga",
         type=str,
     )
     config.download_dir = Path(download_dir_str).expanduser()
@@ -802,6 +803,17 @@ def scan(
     _scan()
 
 
+def _iter_comic_dirs(dl_dir: Path) -> Iterator[Path]:
+    """Yield comic directories, descending into known language subfolders."""
+    for child in sorted(dl_dir.iterdir()):
+        if not child.is_dir():
+            continue
+        if child.name in LANGUAGE_SUBDIR_CODES:
+            yield from (sub for sub in sorted(child.iterdir()) if sub.is_dir())
+        else:
+            yield child
+
+
 def _scan() -> None:
     config = get_or_create_config()
     dl_dir = config.download_dir
@@ -814,10 +826,7 @@ def _scan() -> None:
     tracked: list[tuple[Path, LibraryEntry]] = []
     untracked: list[tuple[Path, str]] = []
 
-    for child in sorted(dl_dir.iterdir()):
-        if not child.is_dir():
-            continue
-
+    for child in _iter_comic_dirs(dl_dir):
         lib_path = child / "library.json"
         if lib_path.exists():
             try:

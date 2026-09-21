@@ -15,15 +15,21 @@ if TYPE_CHECKING:
 from kmoe.library import (
     detect_title_from_directory,
     find_missing_vol_ids,
+    get_comic_dir,
     is_scan_only_entry,
+    language_subdir,
     list_archive_contents,
+    list_library,
+    load_entry,
     refresh_entry_from_detail,
     rescan_download_entry,
     rescan_scan_entry,
+    save_entry,
     scan_book_files,
     scan_untracked_directory,
 )
 from kmoe.models import (
+    AppConfig,
     ComicDetail,
     ComicMeta,
     DownloadedVolume,
@@ -636,3 +642,61 @@ class TestRescanDownloadEntry:
         )
         updated = rescan_download_entry(d, entry)
         assert len(updated.downloaded_volumes) == 1
+
+
+# ---------------------------------------------------------------------------
+# Language-based directory layout
+# ---------------------------------------------------------------------------
+
+
+class TestLanguageSubdir:
+    @pytest.mark.parametrize(
+        ("language", "expected"),
+        [
+            ("中文", "ch"),
+            ("繁體", "ch"),
+            ("简体", "ch"),
+            ("日語", "ja"),
+            ("英文", "en"),
+            ("", "other"),
+            ("韓語", "other"),
+        ],
+    )
+    def test_mapping(self, language: str, expected: str) -> None:
+        assert language_subdir(language) == expected
+
+
+class TestComicDirLayout:
+    def test_comic_dir_nests_under_language(self, tmp_path: Path) -> None:
+        config = AppConfig(download_dir=tmp_path)
+        path = get_comic_dir(config, "10297", "最強不良傳說", "中文")
+        assert path == tmp_path / "ch" / "最強不良傳說_10297"
+
+    def test_save_load_roundtrip_with_language(self, tmp_path: Path) -> None:
+        config = AppConfig(download_dir=tmp_path)
+        entry = LibraryEntry(
+            book_id="10297",
+            comic_id="10297",
+            title="最強不良傳說",
+            meta=ComicMeta(book_id="10297", title="最強不良傳說", language="中文"),
+        )
+        save_entry(config, entry)
+        assert (tmp_path / "ch" / "最強不良傳說_10297" / "library.json").exists()
+        loaded = load_entry(config, "10297", "最強不良傳說", "中文")
+        assert loaded is not None
+        assert loaded.title == "最強不良傳說"
+
+    def test_list_library_finds_nested_comics(self, tmp_path: Path) -> None:
+        config = AppConfig(download_dir=tmp_path)
+        for lang in ("中文", "日語"):
+            save_entry(
+                config,
+                LibraryEntry(
+                    book_id="1",
+                    comic_id="1",
+                    title=f"Comic {lang}",
+                    meta=ComicMeta(book_id="1", title=f"Comic {lang}", language=lang),
+                ),
+            )
+        titles = {e.title for e in list_library(config)}
+        assert titles == {"Comic 中文", "Comic 日語"}

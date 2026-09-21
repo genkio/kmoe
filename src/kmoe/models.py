@@ -141,7 +141,7 @@ class AppConfig:
     overhead.
     """
 
-    download_dir: Path = field(default_factory=lambda: Path.home() / "kmoe-library")
+    download_dir: Path = field(default_factory=lambda: Path.home() / "box" / "manga")
     default_format: str = "epub"
     preferred_mirror: str = "kxx.moe"
     mirror_failover: bool = True

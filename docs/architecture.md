@@ -124,11 +124,14 @@ GET /getdownurl.php?b={book_id}&v={vol_id}&mobi={fmt}&vip={line}&json=1
 
 ```
 {download_dir}/
-  {sanitized_title}_{book_id}/
-    library.json                            # 唯一元数据源
-    [Kmoe][{title}]{vol_title}.{format}    # 下载文件
-    *.zip / *.tar                           # 归档（内含 epub/mobi）
+  {lang}/                                   # 按语言分组：ch/ja/en/other
+    {sanitized_title}_{book_id}/
+      library.json                          # 唯一元数据源
+      [Kmoe][{title}]{vol_title}.{format}  # 下载文件
+      *.zip / *.tar                         # 归档（内含 epub/mobi）
 ```
+
+语言子目录：中文/繁體/簡体 → `ch`，日語 → `ja`，英文 → `en`，其他 → `other`
 
 文件名清理：`/\:*?"<>|` → `_`，去首尾空白/点，截断 200 字符
 

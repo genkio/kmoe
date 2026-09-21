@@ -12,7 +12,7 @@ Broad manga and otaku culture skill. Covers manga collection management, directo
 ### Naming Conventions
 
 **kmoe-downloaded manga** (do NOT rename — kmoe tracks these for updates):
-- Directory: `{title}_{book_id}/`
+- Directory: `{lang}/{title}_{book_id}/` (`{lang}` = ch/ja/en/other)
 - Files: `[Kmoe]{title} {vol_title}.{format}`
 - Contains `library.json` — presence indicates kmoe-managed
 

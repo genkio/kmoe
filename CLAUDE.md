@@ -77,7 +77,7 @@ uv run ruff check src/ && uv run ruff format --check src/ && uv run basedpyright
 ## File Naming Conventions
 
 - 下载文件：`[Kmoe][{title}]{vol_title}.{format}`
-- 目录：`{sanitized_title}_{book_id}`
+- 目录：`{lang}/{sanitized_title}_{book_id}`（`{lang}` = ch/ja/en/other）
 - 元数据：`library.json`（JSON，缩进 2 空格）
 - 配置：`~/.config/kmoe/config.toml`
 - Session：`~/.config/kmoe/session.enc`（Fernet 加密）

@@ -294,6 +294,22 @@ def test_scan_untracked_directory(tmp_path: Path) -> None:
     assert (manga_dir / "library.json").exists()
 
 
+def test_scan_descends_language_subfolders(tmp_path: Path) -> None:
+    """Scan finds comic dirs inside language subfolders and ignores loose files there."""
+    dl_dir = tmp_path / "library"
+    comic_dir = dl_dir / "ch" / "my_manga"
+    comic_dir.mkdir(parents=True)
+    (comic_dir / "[Kmoe][Test Comic]Vol 01.epub").write_bytes(b"x" * 100)
+    # A loose file directly in the language folder is not a comic dir
+    (dl_dir / "ch" / "[Kmoe][Loose]Vol 01.epub").write_bytes(b"y" * 100)
+
+    with patch("kmoe.cli.get_or_create_config", return_value=AppConfig(download_dir=dl_dir)):
+        result = runner.invoke(app, ["scan"])
+    assert result.exit_code == 0
+    assert (comic_dir / "library.json").exists()
+    assert not (dl_dir / "ch" / "library.json").exists()
+
+
 def test_scan_tracked_scan_entry(tmp_path: Path) -> None:
     """Scan rescans a tracked scan-only directory."""
     dl_dir = tmp_path / "library"

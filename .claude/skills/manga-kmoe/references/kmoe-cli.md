@@ -45,7 +45,7 @@ kmoe download <comic_id> -V "vol1,vol2,vol3"    # Specific volume IDs
 kmoe download <comic_id> -f epub                 # Override format (epub/mobi)
 ```
 
-Files go to `{download_dir}/{title}_{book_id}/`. Already-downloaded volumes are skipped.
+Files go to `{download_dir}/{lang}/{title}_{book_id}/`, where `{lang}` is the comic's language (`ch`/`ja`/`en`/`other`). Already-downloaded volumes are skipped.
 
 **Always run `kmoe status` first to check remaining quota.** Warn user if quota looks tight.
 

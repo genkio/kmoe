@@ -57,19 +57,43 @@ class ScannedFile:
 # ---------------------------------------------------------------------------
 
 
-def get_comic_dir(config: AppConfig, comic_id: str, title: str) -> Path:
+# Language keyword -> download subfolder code. Keyword matching handles both
+# the search vocabulary (中文/日語/英文) and detail-page vocabulary (繁體/簡体/...).
+_LANGUAGE_KEYWORDS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("中", "繁", "簡", "简", "漢", "汉"), "ch"),
+    (("日",), "ja"),
+    (("英",), "en"),
+)
+_DEFAULT_LANGUAGE_SUBDIR = "other"
+
+# All subfolder codes language_subdir can return.
+LANGUAGE_SUBDIR_CODES: frozenset[str] = frozenset(
+    {code for _, code in _LANGUAGE_KEYWORDS} | {_DEFAULT_LANGUAGE_SUBDIR}
+)
+
+
+def language_subdir(language: str) -> str:
+    """Map a comic's display language to its download subfolder code."""
+    for keywords, code in _LANGUAGE_KEYWORDS:
+        if any(k in language for k in keywords):
+            return code
+    return _DEFAULT_LANGUAGE_SUBDIR
+
+
+def get_comic_dir(config: AppConfig, comic_id: str, title: str, language: str = "") -> Path:
     """Return the directory path for a comic.
 
-    The directory name is ``{sanitized_title}_{comic_id}`` inside
-    *config.download_dir*.  The directory is **not** created by this function.
+    The path is ``{download_dir}/{language_subdir}/{sanitized_title}_{comic_id}``.
+    The directory is **not** created by this function.
 
     Args:
         config: Application configuration.
         comic_id: The URL-form comic ID (e.g. "425daf"), used for directory naming.
         title: The comic title.
+        language: The comic's display language, selecting the subfolder.
     """
     safe_title = sanitize_filename(title)
-    return config.download_dir / f"{safe_title}_{comic_id}"
+    return config.download_dir / language_subdir(language) / f"{safe_title}_{comic_id}"
 
 
 # ---------------------------------------------------------------------------
@@ -77,17 +101,20 @@ def get_comic_dir(config: AppConfig, comic_id: str, title: str) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def load_entry(config: AppConfig, comic_id: str, title: str) -> LibraryEntry | None:
+def load_entry(
+    config: AppConfig, comic_id: str, title: str, language: str = ""
+) -> LibraryEntry | None:
     """Load a :class:`LibraryEntry` from its ``library.json``.
 
     Args:
         config: Application configuration.
         comic_id: The URL-form comic ID used for directory naming.
         title: The comic title.
+        language: The comic's display language, selecting the subfolder.
 
     Returns ``None`` when the file does not exist.
     """
-    lib_path = get_comic_dir(config, comic_id, title) / "library.json"
+    lib_path = get_comic_dir(config, comic_id, title, language) / "library.json"
     if not lib_path.exists():
         return None
     try:
@@ -103,7 +130,8 @@ def save_entry(config: AppConfig, entry: LibraryEntry) -> None:
 
     Creates the comic directory if it does not already exist.
     """
-    comic_dir = get_comic_dir(config, entry.comic_id or entry.book_id, entry.title)
+    language = entry.meta.language if entry.meta else ""
+    comic_dir = get_comic_dir(config, entry.comic_id or entry.book_id, entry.title, language)
     ensure_dir(comic_dir)
     lib_path = comic_dir / "library.json"
     lib_path.write_text(entry.model_dump_json(indent=2), encoding="utf-8")
@@ -120,9 +148,10 @@ def is_volume_downloaded(
     title: str,
     vol_id: str,
     fmt: str,
+    language: str = "",
 ) -> bool:
     """Check whether a specific volume+format combination has been downloaded."""
-    entry = load_entry(config, comic_id, title)
+    entry = load_entry(config, comic_id, title, language)
     if entry is None:
         return False
     return any(v.vol_id == vol_id and v.format == fmt for v in entry.downloaded_volumes)
@@ -201,12 +230,8 @@ def list_library(config: AppConfig) -> list[LibraryEntry]:
     if not dl_dir.exists():
         return entries
 
-    for child in sorted(dl_dir.iterdir()):
-        if not child.is_dir():
-            continue
-        lib_path = child / "library.json"
-        if not lib_path.exists():
-            continue
+    # rglob so comics nested under language subfolders are found too
+    for lib_path in sorted(dl_dir.rglob("library.json")):
         try:
             raw = lib_path.read_text(encoding="utf-8")
             entries.append(LibraryEntry.model_validate_json(raw))

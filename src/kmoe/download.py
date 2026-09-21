@@ -154,6 +154,7 @@ def _should_skip_volume(
     format_name: str,
     dest: Path,
     volume: Volume,
+    language: str = "",
 ) -> bool:
     """Check whether a volume should be skipped.
 
@@ -161,7 +162,7 @@ def _should_skip_volume(
     exists on disk with a plausible size (within 10 MB of the expected size,
     or any size when no expected size is available).
     """
-    entry = load_entry(config, comic_id, title)
+    entry = load_entry(config, comic_id, title, language)
     if entry is None:
         return False
 
@@ -221,12 +222,14 @@ async def download_volume(
     volume = find_volume(detail, vol_id)
 
     # Determine destination path (use comic_id for directory naming)
-    comic_dir = get_comic_dir(config, comic_id, title)
+    comic_dir = get_comic_dir(config, comic_id, title, detail.meta.language)
     filename = f"[Kmoe][{sanitize_filename(title)}]{volume.title}.{format_name}"
     dest = comic_dir / filename
 
     # Skip if already downloaded and file looks valid
-    if _should_skip_volume(config, comic_id, title, vol_id, format_name, dest, volume):
+    if _should_skip_volume(
+        config, comic_id, title, vol_id, format_name, dest, volume, detail.meta.language
+    ):
         log.info(
             "volume already downloaded, skipping",
             book_id=book_id,
@@ -280,7 +283,7 @@ async def download_volume(
     # Record in library
     size_bytes = dest.stat().st_size if dest.exists() else 0
 
-    entry = load_entry(config, comic_id, title)
+    entry = load_entry(config, comic_id, title, detail.meta.language)
     if entry is None:
         entry = LibraryEntry(
             book_id=book_id,
